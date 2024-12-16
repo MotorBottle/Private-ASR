@@ -165,16 +165,38 @@ if __name__ == "__main__":
                 dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=True)
             return None, (sr, res_audio), message, clip_srt
         
+    def extract_speaker_labels(subtitles):
+        """
+        从字幕内容中提取所有的 spkX 标识，并生成默认的映射字符串。
+        :param subtitles: SRT字幕内容
+        :return: 默认的说话人映射字符串 (如 "spk0:, spk1:, spk2:")
+        """
+        import re
+        speakers = sorted(set(re.findall(r"\bspk\d+\b", subtitles)))
+        return "\n".join(f"{speaker}:" for speaker in speakers)
+
+    def prepare_speaker_map(subtitles):
+        """
+        根据字幕内容动态生成预填充的说话人映射规则。
+        :param subtitles: 当前 SRT 字幕内容
+        :return: 默认的说话人映射规则字符串
+        """
+        return extract_speaker_labels(subtitles)
+
     def parse_speaker_map(speaker_map_str):
         """
         解析用户输入的说话人映射字符串为字典。
-        :param speaker_map_str: 说话人映射字符串 (如 "spk0:张三, spk1:李四")
-        :return: 解析后的字典 (如 {"spk0": "张三", "spk1": "李四"})
+        :param speaker_map_str: 说话人映射字符串，每行一个映射 (如 "spk0:张三\nspk1:\nspk2:王五")
+        :return: 解析后的字典 (如 {"spk0": "张三", "spk2": "王五"})
         """
         try:
-            return dict(item.strip().split(":") for item in speaker_map_str.split(","))
+            return {
+                item.split(":", 1)[0].strip(): item.split(":", 1)[1].strip()
+                for item in speaker_map_str.splitlines()
+                if ":" in item.strip() and item.split(":", 1)[1].strip()  # 忽略空值行
+            }
         except ValueError:
-            raise ValueError("说话人映射格式错误，请输入正确的格式，例如 'spk0:张三, spk1:李四'")
+            raise ValueError("说话人映射格式错误，请输入正确的格式，例如每行 'spk0:张三'")
 
 
     def replace_speaker_in_subtitles(subtitles, speaker_map_str):
@@ -244,20 +266,28 @@ if __name__ == "__main__":
                 video_text_output = gr.Textbox(label="✏️ 识别结果 | Recognition Result")
                 video_srt_output = gr.Textbox(label="📖 SRT字幕内容 | SRT Subtitles")
             with gr.Column():
+                # 替换说话人 Tab
                 with gr.Tab("🔄 替换说话人 Replace Speaker"):
                     speaker_map_input = gr.Textbox(
-                        label="替换规则 | Replacement Rules (格式: spk0:张三, spk1:李四)",
-                        placeholder="输入说话人替换规则，例如 spk0:张三, spk1:李四",
+                        label="替换规则 | Replacement Rules (每行格式: spkX:名称)",
+                        placeholder="自动生成当前字幕的spkX标识...",
+                        lines=10,  # 允许多行输入
                     )
                     replace_button = gr.Button("替换 Replace", variant="primary")
                     replaced_srt_output = gr.Textbox(label="替换后的SRT字幕内容 | Replaced SRT Subtitles")
 
-                    replace_button.click(
-                        replace_speaker_in_subtitles,
-                        inputs=[video_srt_output, speaker_map_input],  # 输入字幕内容和映射规则
-                        outputs=[replaced_srt_output],  # 输出替换后的字幕内容
+                    # 自动填充 speaker_map_input 的默认值
+                    video_srt_output.change(
+                        prepare_speaker_map,
+                        inputs=[video_srt_output],
+                        outputs=[speaker_map_input],
                     )
 
+                    replace_button.click(
+                        replace_speaker_in_subtitles,
+                        inputs=[video_srt_output, speaker_map_input],
+                        outputs=[replaced_srt_output],
+                    )
 
                 with gr.Tab("📄 LLM文档总结 | LLM Document Summarization"):
                     with gr.Column():
