@@ -164,14 +164,57 @@ if __name__ == "__main__":
                 dest_text, start_ost, end_ost, audio_state, 
                 dest_spk=video_spk_input, output_dir=output_dir, timestamp_list=timestamp_list, add_sub=True)
             return None, (sr, res_audio), message, clip_srt
-    
+        
+    def parse_speaker_map(speaker_map_str):
+        """
+        解析用户输入的说话人映射字符串为字典。
+        :param speaker_map_str: 说话人映射字符串 (如 "spk0:张三, spk1:李四")
+        :return: 解析后的字典 (如 {"spk0": "张三", "spk1": "李四"})
+        """
+        try:
+            return dict(item.strip().split(":") for item in speaker_map_str.split(","))
+        except ValueError:
+            raise ValueError("说话人映射格式错误，请输入正确的格式，例如 'spk0:张三, spk1:李四'")
+
+
+    def replace_speaker_in_subtitles(subtitles, speaker_map_str):
+        """
+        替换字幕中的说话人标识。
+        :param subtitles: 原始SRT字幕内容（字符串）
+        :param speaker_map_str: 用户提供的说话人映射字符串 (如 "spk0:张三, spk1:李四")
+        :return: 替换后的SRT字幕内容
+        """
+        # 将映射字符串解析为字典
+        speaker_map = parse_speaker_map(speaker_map_str)
+        
+        # 替换SRT内容中的说话人
+        def replace_speaker_line(line):
+            for old_speaker, new_speaker in speaker_map.items():
+                line = line.replace(old_speaker, new_speaker)
+            return line
+
+        # 逐行替换SRT内容
+        lines = subtitles.split("\n")
+        replaced_lines = [replace_speaker_line(line) for line in lines]
+        return "\n".join(replaced_lines)
+
+    def summarize_asr(system_prompt, user_prompt, asr_text, model, apikey):
+        """
+        调用LLM总结ASR识别内容
+        :param system_prompt: 系统设定的Prompt
+        :param user_prompt: 用户输入的Prompt
+        :param asr_text: ASR识别的结果
+        :param model: LLM模型名称
+        :param apikey: 用户提供的API密钥
+        :return: LLM返回的总结结果
+        """
+        return llm_inference(system_prompt, user_prompt, asr_text, model, apikey)
+
+
     # gradio interface
     theme = gr.Theme.load("funclip/utils/theme.json")
     with gr.Blocks(theme=theme) as funclip_service:
-        gr.Markdown(top_md_1)
-        # gr.Markdown(top_md_2)
-        gr.Markdown(top_md_3)
-        gr.Markdown(top_md_4)
+
         video_state, audio_state = gr.State(), gr.State()
         with gr.Row():
             with gr.Column():
@@ -199,49 +242,66 @@ if __name__ == "__main__":
                             recog_button = gr.Button("👂 识别 | ASR", variant="primary")
                             recog_button2 = gr.Button("👂👫 识别+区分说话人 | ASR+SD")
                 video_text_output = gr.Textbox(label="✏️ 识别结果 | Recognition Result")
-                video_srt_output = gr.Textbox(label="📖 SRT字幕内容 | RST Subtitles")
+                video_srt_output = gr.Textbox(label="📖 SRT字幕内容 | SRT Subtitles")
             with gr.Column():
-                with gr.Tab("🧠 LLM智能裁剪 | LLM Clipping"):
+                with gr.Tab("🔄 替换说话人 Replace Speaker"):
+                    speaker_map_input = gr.Textbox(
+                        label="替换规则 | Replacement Rules (格式: spk0:张三, spk1:李四)",
+                        placeholder="输入说话人替换规则，例如 spk0:张三, spk1:李四",
+                    )
+                    replace_button = gr.Button("替换 Replace", variant="primary")
+                    replaced_srt_output = gr.Textbox(label="替换后的SRT字幕内容 | Replaced SRT Subtitles")
+
+                    replace_button.click(
+                        replace_speaker_in_subtitles,
+                        inputs=[video_srt_output, speaker_map_input],  # 输入字幕内容和映射规则
+                        outputs=[replaced_srt_output],  # 输出替换后的字幕内容
+                    )
+
+
+                with gr.Tab("📄 LLM文档总结 | LLM Document Summarization"):
                     with gr.Column():
-                        prompt_head = gr.Textbox(label="Prompt System (按需更改，最好不要变动主体和要求)", value=("你是一个视频srt字幕分析剪辑器，输入视频的srt字幕，"
-                                "分析其中的精彩且尽可能连续的片段并裁剪出来，输出四条以内的片段，将片段中在时间上连续的多个句子及它们的时间戳合并为一条，"
-                                "注意确保文字与时间戳的正确匹配。输出需严格按照如下格式：1. [开始时间-结束时间] 文本，注意其中的连接符是“-”"))
-                        prompt_head2 = gr.Textbox(label="Prompt User（不需要修改，会自动拼接左下角的srt字幕）", value=("这是待裁剪的视频srt字幕："))
-                        with gr.Column():
-                            with gr.Row():
-                                llm_model = gr.Dropdown(
-                                    choices=["qwen-plus",
-                                             "gpt-3.5-turbo", 
-                                             "gpt-3.5-turbo-0125", 
-                                             "gpt-4-turbo",
-                                             "g4f-gpt-3.5-turbo"], 
-                                    value="qwen-plus",
-                                    label="LLM Model Name",
-                                    allow_custom_value=True)
-                                apikey_input = gr.Textbox(label="APIKEY")
-                            llm_button =  gr.Button("LLM推理 | LLM Inference（首先进行识别，非g4f需配置对应apikey）", variant="primary")
-                        llm_result = gr.Textbox(label="LLM Clipper Result")
-                        with gr.Row():
-                            llm_clip_button = gr.Button("🧠 LLM智能裁剪 | AI Clip", variant="primary")
-                            llm_clip_subti_button = gr.Button("🧠 LLM智能裁剪+字幕 | AI Clip+Subtitles")
-                with gr.Tab("✂️ 根据文本/说话人裁剪 | Text/Speaker Clipping"):
-                    video_text_input = gr.Textbox(label="✏️ 待裁剪文本 | Text to Clip (多段文本使用'#'连接)")
-                    video_spk_input = gr.Textbox(label="✏️ 待裁剪说话人 | Speaker to Clip (多个说话人使用'#'连接)")
-                    with gr.Row():
-                        clip_button = gr.Button("✂️ 裁剪 | Clip", variant="primary")
-                        clip_subti_button = gr.Button("✂️ 裁剪+字幕 | Clip+Subtitles")
-                    with gr.Row():
-                        video_start_ost = gr.Slider(minimum=-500, maximum=1000, value=0, step=50, label="⏪ 开始位置偏移 | Start Offset (ms)")
-                        video_end_ost = gr.Slider(minimum=-500, maximum=1000, value=100, step=50, label="⏩ 结束位置偏移 | End Offset (ms)")
-                with gr.Row():
-                    font_size = gr.Slider(minimum=10, maximum=100, value=32, step=2, label="🔠 字幕字体大小 | Subtitle Font Size")
-                    font_color = gr.Radio(["black", "white", "green", "red"], label="🌈 字幕颜色 | Subtitle Color", value='white')
-                    # font = gr.Radio(["黑体", "Alibaba Sans"], label="字体 Font")
-                video_output = gr.Video(label="裁剪结果 | Video Clipped")
-                audio_output = gr.Audio(label="裁剪结果 | Audio Clipped")
-                clip_message = gr.Textbox(label="⚠️ 裁剪信息 | Clipping Log")
-                srt_clipped = gr.Textbox(label="📖 裁剪部分SRT字幕内容 | Clipped RST Subtitles")            
-                
+                        system_prompt_input = gr.Textbox(
+                            label="Prompt System (系统提示词)",
+                            placeholder="请输入系统Prompt，例如：你是一个语音识别总结助手...",
+                            value=("你是一个语音识别总结助手，接收用户提供的语音转文本（ASR）结果，"
+                                "根据用户指令总结关键信息或生成内容。")
+                        )
+                        user_prompt_input = gr.Textbox(
+                            label="Prompt User (用户自定义提示词)",
+                            placeholder="请输入用户Prompt，例如：总结以下内容的关键信息...",
+                            value="总结以下内容的关键信息："
+                        )
+                        llm_model = gr.Dropdown(
+                            choices=["qwen-plus",
+                                    "gpt-3.5-turbo",
+                                    "gpt-3.5-turbo-0125",
+                                    "gpt-4-turbo",
+                                    "g4f-gpt-3.5-turbo"],
+                            value="qwen-plus",
+                            label="LLM Model Name",
+                            allow_custom_value=True
+                        )
+                        apikey_input = gr.Textbox(
+                            label="APIKEY",
+                            placeholder="输入API Key（如需使用GPT或Qwen API）"
+                        )
+                        summarize_button = gr.Button(
+                            "总结 Summarize (使用LLM总结ASR内容)",
+                            variant="primary"
+                        )
+                        llm_summary_result = gr.Textbox(
+                            label="总结结果 | Summary Result",
+                            placeholder="LLM返回的总结结果将显示在这里"
+                        )
+
+                        # 将输入的ASR文本用于总结
+                        summarize_button.click(
+                            summarize_asr,
+                            inputs=[system_prompt_input, user_prompt_input, video_text_output, llm_model, apikey_input],
+                            outputs=[llm_summary_result]
+                        )
+
         recog_button.click(mix_recog, 
                             inputs=[video_input, 
                                     audio_input, 
@@ -256,53 +316,7 @@ if __name__ == "__main__":
                                     output_dir,
                                     ], 
                             outputs=[video_text_output, video_srt_output, video_state, audio_state])
-        clip_button.click(mix_clip, 
-                           inputs=[video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   audio_state, 
-                                   output_dir
-                                   ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
-        clip_subti_button.click(video_clip_addsub, 
-                           inputs=[video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   output_dir, 
-                                   font_size, 
-                                   font_color,
-                                   ], 
-                           outputs=[video_output, clip_message, srt_clipped])
-        llm_button.click(llm_inference,
-                         inputs=[prompt_head, prompt_head2, video_srt_output, llm_model, apikey_input],
-                         outputs=[llm_result])
-        llm_clip_button.click(AI_clip, 
-                           inputs=[llm_result,
-                                   video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   audio_state, 
-                                   output_dir,
-                                   ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
-        llm_clip_subti_button.click(AI_clip_subti, 
-                           inputs=[llm_result,
-                                   video_text_input, 
-                                   video_spk_input, 
-                                   video_start_ost, 
-                                   video_end_ost, 
-                                   video_state, 
-                                   audio_state, 
-                                   output_dir,
-                                   ],
-                           outputs=[video_output, audio_output, clip_message, srt_clipped])
-    
+
     # start gradio service in local or share
     if args.listen:
         funclip_service.launch(share=args.share, server_port=args.port, server_name=server_name, inbrowser=False)

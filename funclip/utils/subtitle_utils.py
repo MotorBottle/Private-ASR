@@ -64,6 +64,22 @@ def generate_srt(sentence_list):
             srt_total += "{}\n{}".format(i, t2s.srt())
     return srt_total
 
+def replace_speaker_in_subtitles(subtitles, speaker_map):
+    """
+    替换字幕中的说话人
+    :param subtitles: 字幕列表
+    :param speaker_map: 用户提供的说话人映射
+    :return: 替换后的字幕
+    """
+    replaced_subtitles = []
+    for subtitle in subtitles:
+        if 'spk' in subtitle:
+            old_speaker = f"spk{subtitle['spk']}"
+            new_speaker = speaker_map.get(old_speaker, old_speaker)
+            subtitle['spk'] = new_speaker
+        replaced_subtitles.append(subtitle)
+    return replaced_subtitles
+
 def generate_srt_clip(sentence_list, start, end, begin_index=0, time_acc_ost=0.0):
     start, end = int(start * 1000), int(end * 1000)
     srt_total = ''
