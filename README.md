@@ -8,6 +8,10 @@ This project is modded from **FunClip** project, built with ASR (Automatic Speec
 
 ---
 
+Update: Added support for GPU inference for both Docker/local deployment. [Docker-GPU deployment Check This](./Docker_GPU.md)
+
+---
+
 ## 📜 **Credits**
 
 This project builds upon the open-source **[FunClip](https://github.com/alibaba-damo-academy/FunClip)** by [Alibaba DAMO Academy](https://github.com/alibaba-damo-academy). I modded the functionality to include:

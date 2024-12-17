@@ -5,6 +5,10 @@
 本项目基于开源项目 **FunClip** 进行修改，集成了自动语音识别 (ASR)、说话人分离、SRT 字幕编辑以及基于 LLM 的总结功能。项目使用 **Gradio** 提供了一个直观易用的用户界面。
 
 ---
+
+更新: 添加了本地部署/Docker部署的GPU推理支持. [Docker的GPU加速请查看这个](./Docker_GPU.md)
+
+---
 ![alt text](IMG_3044.JPG)
 
 示例：服务器部署+私有LLM API
