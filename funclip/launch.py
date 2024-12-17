@@ -13,6 +13,7 @@ from videoclipper import VideoClipper
 from llm.openai_api import openai_call
 from llm.qwen_api import call_qwen_model
 from llm.g4f_openai_api import g4f_openai_call
+from llm.private_api import openai_call
 from utils.trans_utils import extract_timestamps
 from introduction import top_md_1, top_md_3, top_md_4
 
@@ -116,18 +117,24 @@ if __name__ == "__main__":
             add_sub=True, dest_spk=video_spk_input, output_dir=output_dir
             )
         
-    def llm_inference(system_content, user_content, srt_text, model, apikey):
-        SUPPORT_LLM_PREFIX = ['qwen', 'gpt', 'g4f', 'moonshot']
-        if model.startswith('qwen'):
-            return call_qwen_model(apikey, model, user_content+'\n'+srt_text, system_content)
-        if model.startswith('gpt') or model.startswith('moonshot'):
-            return openai_call(apikey, model, system_content, user_content+'\n'+srt_text)
-        elif model.startswith('g4f'):
-            model = "-".join(model.split('-')[1:])
-            return g4f_openai_call(model, system_content, user_content+'\n'+srt_text)
-        else:
-            logging.error("LLM name error, only {} are supported as LLM name prefix."
-                          .format(SUPPORT_LLM_PREFIX))
+    # def llm_inference(system_content, user_content, srt_text, model, apikey):
+    #     SUPPORT_LLM_PREFIX = ['qwen', 'gpt', 'g4f', 'moonshot']
+    #     if model.startswith('qwen'):
+    #         return call_qwen_model(apikey, model, user_content+'\n'+srt_text, system_content)
+    #     if model.startswith('gpt') or model.startswith('moonshot'):
+    #         return openai_call(apikey, model, system_content, user_content+'\n'+srt_text)
+    #     elif model.startswith('g4f'):
+    #         model = "-".join(model.split('-')[1:])
+    #         return g4f_openai_call(model, system_content, user_content+'\n'+srt_text)
+    #     else:
+    #         logging.error("LLM name error, only {} are supported as LLM name prefix."
+    #                       .format(SUPPORT_LLM_PREFIX))
+
+    def llm_inference(system_content, user_content, srt_text, model, apikey, api_base=None):
+        """
+        This function will check for the model prefix and call the appropriate API method (in this case, OpenAI).
+        """
+        return openai_call(apikey, model, system_content, user_content+'\n'+srt_text, api_base=api_base)
     
     def AI_clip(LLM_res, dest_text, video_spk_input, start_ost, end_ost, video_state, audio_state, output_dir):
         timestamp_list = extract_timestamps(LLM_res)
@@ -220,7 +227,7 @@ if __name__ == "__main__":
         replaced_lines = [replace_speaker_line(line) for line in lines]
         return "\n".join(replaced_lines)
 
-    def summarize_asr(system_prompt, user_prompt, asr_text, model, apikey):
+    def summarize_asr(system_prompt, user_prompt, asr_text, model, apikey, api_base=None):
         """
         调用LLM总结ASR识别内容
         :param system_prompt: 系统设定的Prompt
@@ -228,9 +235,10 @@ if __name__ == "__main__":
         :param asr_text: ASR识别的结果
         :param model: LLM模型名称
         :param apikey: 用户提供的API密钥
+        :param api_base: 自建API的Base URL，默认为None
         :return: LLM返回的总结结果
         """
-        return llm_inference(system_prompt, user_prompt, asr_text, model, apikey)
+        return llm_inference(system_prompt, user_prompt, asr_text, model, apikey, api_base=api_base)
 
 
     # gradio interface
@@ -291,44 +299,75 @@ if __name__ == "__main__":
 
                 with gr.Tab("📄 LLM文档总结 | LLM Document Summarization"):
                     with gr.Column():
+                        # 系统Prompt输入框
                         system_prompt_input = gr.Textbox(
                             label="Prompt System (系统提示词)",
                             placeholder="请输入系统Prompt，例如：你是一个语音识别总结助手...",
-                            value=("你是一个语音识别总结助手，接收用户提供的语音转文本（ASR）结果，"
-                                "根据用户指令总结关键信息或生成内容。")
+                            value=("你是一个语音识别总结助手，接收用户提供的语音转文本（ASR）结果，根据用户指令总结关键信息或生成内容。"
+                                "语音转文本的结果以srt的形式提供，例如：\n"
+                                "0  spk0\n"
+                                "00:00:00,50 --> 00:00:09,810\n"
+                                "语句1\n"
+                                "1  spk1\n"
+                                "00:00:10,270 --> 00:00:12,150\n"
+                                "语句2\n"
+                                "2  spk1\n"
+                                "00:00:12,790 --> 00:00:13,890\n"
+                                "语句3\n"
+                                "如果序号后没有说话人名，则为不区分说话人asr结果")
                         )
+
                         user_prompt_input = gr.Textbox(
                             label="Prompt User (用户自定义提示词)",
                             placeholder="请输入用户Prompt，例如：总结以下内容的关键信息...",
-                            value="总结以下内容的关键信息："
+                            value="总结以下内容的关键信息，讨论的主题、纪要、要点和总结，不同发言者的观点（如有），以及结论和目标（如有）"
                         )
+
+                        # LLM模型选择框
                         llm_model = gr.Dropdown(
-                            choices=["qwen-plus",
-                                    "gpt-3.5-turbo",
-                                    "gpt-3.5-turbo-0125",
-                                    "gpt-4-turbo",
-                                    "g4f-gpt-3.5-turbo"],
-                            value="qwen-plus",
+                            choices=["qwen2.5:32b", "gpt-3.5-turbo"],
+                            value="gpt-3.5-turbo",
                             label="LLM Model Name",
                             allow_custom_value=True
                         )
+
+                        # 密钥输入框，隐藏显示密码
                         apikey_input = gr.Textbox(
                             label="APIKEY",
-                            placeholder="输入API Key（如需使用GPT或Qwen API）"
+                            placeholder="输入API Key（如需使用GPT或Qwen API）",
+                            type="password",  # 默认隐藏
                         )
+
+                        # 自建API Base URL 输入框
+                        api_base_input = gr.Textbox(
+                            label="API Base (可选)",
+                            placeholder="请输入自建API Base（如果有的话）",
+                            lines=1
+                        )
+
+                        # 总结按钮
                         summarize_button = gr.Button(
                             "总结 Summarize (使用LLM总结ASR内容)",
                             variant="primary"
                         )
+
+                        # 总结结果显示框
                         llm_summary_result = gr.Textbox(
                             label="总结结果 | Summary Result",
                             placeholder="LLM返回的总结结果将显示在这里"
                         )
 
-                        # 将输入的ASR文本用于总结
+                        # 触发总结按钮点击事件
                         summarize_button.click(
                             summarize_asr,
-                            inputs=[system_prompt_input, user_prompt_input, video_text_output, llm_model, apikey_input],
+                            inputs=[
+                                system_prompt_input,
+                                user_prompt_input,
+                                video_text_output if not replaced_srt_output else replaced_srt_output,  # 使用替换的srt文本或原始视频文本
+                                llm_model,
+                                apikey_input,
+                                api_base_input
+                            ],
                             outputs=[llm_summary_result]
                         )
 

@@ -14,3 +14,5 @@ dashscope
 curl_cffi
 onnx
 onnxconverter_common
+python-dotenv
+socksio
