@@ -69,15 +69,14 @@ version: '3.8'
 
 services:
   audio-processor:
-    image: audio-processor:latest
+    image: audio-processor:latest  # The image you built
     container_name: audio-processor
     ports:
-      - "7860:7860"  # Map Gradio service to host port
-    environment:
-      - USERNAME=motor      # Username for login
-      - PASSWORD=admin      # Password for login
+      - "7860:7860"
     volumes:
-      - ./.env:/app/.env    # Map .env file for credentials
+      - ./.env:/app/.env  # Map the .env file
+    working_dir: /app
+    restart: unless-stopped
 ```
 
 Run the deployment:

@@ -70,15 +70,14 @@ version: '3.8'
 
 services:
   audio-processor:
-    image: audio-processor:latest
+    image: audio-processor:latest  # 使用已构建的镜像
     container_name: audio-processor
     ports:
-      - "7860:7860"  # 将 Gradio 服务映射到主机端口
-    environment:
-      - USERNAME=motor      # 登录账号
-      - PASSWORD=admin      # 登录密码
+      - "7860:7860"  # 端口映射
     volumes:
-      - ./.env:/app/.env    # 映射 .env 文件，用于存储凭据
+      - ./.env:/app/.env  # 仅映射 .env 文件
+    working_dir: /app  # 设置工作目录
+    restart: unless-stopped  # 确保服务异常退出时重启
 ```
 
 启动部署：
