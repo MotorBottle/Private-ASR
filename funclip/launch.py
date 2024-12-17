@@ -325,8 +325,8 @@ if __name__ == "__main__":
 
                         # LLM模型选择框
                         llm_model = gr.Dropdown(
-                            choices=["qwen2.5:32b", "gpt-3.5-turbo"],
-                            value="gpt-3.5-turbo",
+                            choices=["qwen2.5:32b", "gpt-3.5-turbo", "gpt-4o"],
+                            value="qwen2.5:32b",
                             label="LLM Model Name",
                             allow_custom_value=True
                         )
@@ -357,18 +357,40 @@ if __name__ == "__main__":
                             placeholder="LLM返回的总结结果将显示在这里"
                         )
 
-                        # 触发总结按钮点击事件
+                        # 正确传递输入内容给函数
+                        def get_valid_srt_output(video_srt, replaced_srt):
+                            """
+                            Check which SRT content is valid: replaced or original.
+                            :param video_srt: Original SRT content
+                            :param replaced_srt: Replaced SRT content
+                            :return: The valid SRT content
+                            """
+                            
+                            if replaced_srt and replaced_srt.strip():
+                                return replaced_srt.strip()
+                            else:
+                                return video_srt.strip()
+
+                        # 点击事件中调用 summarize_asr，动态选择有效的 SRT 内容
                         summarize_button.click(
-                            summarize_asr,
+                            lambda system, user, video_srt, replaced_srt, model, apikey, api_base: summarize_asr(
+                                system,
+                                user,
+                                get_valid_srt_output(video_srt, replaced_srt),
+                                model,
+                                apikey,
+                                api_base
+                            ),
                             inputs=[
-                                system_prompt_input,
-                                user_prompt_input,
-                                video_text_output if not replaced_srt_output else replaced_srt_output,  # 使用替换的srt文本或原始视频文本
-                                llm_model,
-                                apikey_input,
-                                api_base_input
+                                system_prompt_input,      # 系统提示词
+                                user_prompt_input,        # 用户提示词
+                                video_srt_output,         # 原始 SRT 内容
+                                replaced_srt_output,      # 替换后的 SRT 内容
+                                llm_model,                # 选择的 LLM 模型
+                                apikey_input,             # API Key
+                                api_base_input            # API Base URL
                             ],
-                            outputs=[llm_summary_result]
+                            outputs=[llm_summary_result]  # 输出结果
                         )
 
         recog_button.click(mix_recog, 
