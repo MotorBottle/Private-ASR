@@ -15,8 +15,14 @@ from llm.qwen_api import call_qwen_model
 from llm.g4f_openai_api import g4f_openai_call
 from llm.private_api import openai_call
 from utils.trans_utils import extract_timestamps
-from introduction import top_md_1, top_md_3, top_md_4
+from dotenv import load_dotenv
 
+# 加载 .env 文件
+load_dotenv()
+
+# 获取账号和密码，设置默认值
+DEFAULT_USERNAME = os.getenv("USERNAME", "motor")
+DEFAULT_PASSWORD = os.getenv("PASSWORD", "admin")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='argparse testing')
@@ -44,7 +50,6 @@ if __name__ == "__main__":
     server_name='127.0.0.1'
     if args.listen:
         server_name = '0.0.0.0'
-        
         
 
     def audio_recog(audio_input, sd_switch, hotwords, output_dir):
@@ -410,6 +415,17 @@ if __name__ == "__main__":
 
     # start gradio service in local or share
     if args.listen:
-        funclip_service.launch(share=args.share, server_port=args.port, server_name=server_name, inbrowser=False)
+        funclip_service.launch(
+            share=args.share, 
+            server_port=args.port, 
+            server_name=server_name, 
+            inbrowser=False,
+            auth=(DEFAULT_USERNAME, DEFAULT_PASSWORD)  # 添加账号和密码认证
+        )
     else:
-        funclip_service.launch(share=args.share, server_port=args.port, server_name=server_name)
+        funclip_service.launch(
+            share=args.share, 
+            server_port=args.port, 
+            server_name=server_name,
+            auth=(DEFAULT_USERNAME, DEFAULT_PASSWORD)  # 添加账号和密码认证
+        )
