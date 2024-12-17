@@ -8,6 +8,7 @@ import os
 import logging
 import argparse
 import gradio as gr
+import torch
 from funasr import AutoModel
 from videoclipper import VideoClipper
 from llm.openai_api import openai_call
@@ -19,6 +20,8 @@ from dotenv import load_dotenv
 
 # 加载 .env 文件
 load_dotenv()
+
+device = os.getenv("DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")  # 自动检测GPU或使用CPU
 
 # 获取账号和密码，设置默认值
 DEFAULT_USERNAME = os.getenv("USERNAME", "motor")
@@ -37,12 +40,14 @@ if __name__ == "__main__":
                                 vad_model="damo/speech_fsmn_vad_zh-cn-16k-common-pytorch",
                                 punc_model="damo/punc_ct-transformer_zh-cn-common-vocab272727-pytorch",
                                 spk_model="damo/speech_campplus_sv_zh-cn_16k-common",
+                                device=device
                                 )
     else:
         funasr_model = AutoModel(model="iic/speech_paraformer_asr-en-16k-vocab4199-pytorch",
                                 vad_model="damo/speech_fsmn_vad_zh-cn-16k-common-pytorch",
                                 punc_model="damo/punc_ct-transformer_zh-cn-common-vocab272727-pytorch",
                                 spk_model="damo/speech_campplus_sv_zh-cn_16k-common",
+                                device=device
                                 )
     audio_clipper = VideoClipper(funasr_model)
     audio_clipper.lang = args.lang
