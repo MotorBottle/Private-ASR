@@ -1,5 +1,9 @@
 # GPU 部署 - GPU Deployment
 
+![alt text](image.png)
+
+使用GPU加速推理，速度快的飞起（CPU一般每秒是个位数甚至不到1的步数）
+
 ## Docker 环境配置
 先看一下文档，做好docker调用gpu的配置工作。
 [Docker部署机器学习项目教程](https://blog.motorbottle.site/archives/308)
