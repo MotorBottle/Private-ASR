@@ -12,6 +12,8 @@ import logging
 import argparse
 import numpy as np
 import soundfile as sf
+import torchaudio
+import torch
 from moviepy.editor import *
 import moviepy.editor as mpy
 from moviepy.video.tools.subtitles import SubtitlesClip, TextClip
@@ -36,12 +38,14 @@ class VideoClipper():
         # Convert to float64 consistently (includes data type checking)
         data = convert_pcm_to_float(data)
 
-        # assert sr == 16000, "16kHz sample rate required, {} given.".format(sr)
-        if sr != 16000: # resample with librosa
-            data = librosa.resample(data, orig_sr=sr, target_sr=16000)
+        # Update to use torchaudio
+        if sr != 16000:  # Resample using torchaudio
+            data = torch.tensor(data, dtype=torch.float32)  # Ensure data is float32
+            data = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(data).numpy()
+            sr = 16000
         if len(data.shape) == 2:  # multi-channel wav input
-            logging.warning("Input wav shape: {}, only first channel reserved.".format(data.shape))
-            data = data[:,0]
+            logging.warning("Converting multi-channel audio to mono.")
+            data = np.mean(data, axis=1)
         state['audio_input'] = (sr, data)
         if sd_switch == 'Yes':
             rec_result = self.funasr_model.generate(data, 
