@@ -47,3 +47,26 @@ conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cud
 cd App
 pip install -r requirements_cuda_docker.txt --no-deps
 ```
+
+验证可以成功运行后，docker commit <你的容器id> asr-llm-gpu:latest
+
+```
+version: '3.8'
+services:
+  asr-llm-gpu:
+    image: asr-llm-gpu:latest
+    runtime: nvidia
+    container_name: asr-llm-gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+    volumes:
+      - ./Audio-Processor:/App
+      - ./.env:/App/.env
+    shm_size: '64g'
+    ports:
+      - "7861:7860"
+    stdin_open: true
+    tty: true
+    command: >
+      bash -c "source /opt/miniconda/bin/activate && conda activate asr && cd App && python funclip/launch.py --listen"
+```
