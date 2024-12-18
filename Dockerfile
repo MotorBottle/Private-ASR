@@ -1,4 +1,5 @@
 # 使用 Python 3.10 slim 作为基础镜像
+# For CPU Deployment
 FROM python:3.10-slim
 
 # 设置工作目录
