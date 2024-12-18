@@ -5,7 +5,7 @@ services:
     image: audio-processor:latest  # 使用已构建的镜像
     container_name: audio-processor
     ports:
-      - "7862:7860"  # 端口映射
+      - "7860:7860"  # 端口映射
     volumes:
       - ./.env:/app/.env  # 仅映射 .env 文件
     working_dir: /app  # 设置工作目录
