@@ -12,9 +12,6 @@ import gradio as gr
 import torch
 from funasr import AutoModel
 from videoclipper import VideoClipper
-from llm.openai_api import openai_call
-from llm.qwen_api import call_qwen_model
-from llm.g4f_openai_api import g4f_openai_call
 from llm.private_api import openai_call
 from utils.trans_utils import extract_timestamps
 from dotenv import load_dotenv
