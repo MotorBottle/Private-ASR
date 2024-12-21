@@ -1,4 +1,4 @@
-# 音视频总结
+# 本地部署音视频转录+总结
 
 [简体中文](./README_zh.md) / [English](./README.md)
 
