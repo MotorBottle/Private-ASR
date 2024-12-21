@@ -1,4 +1,4 @@
-# Audio Processor
+# Private-ASR
 
 This project is modded from **FunClip** project, built with ASR (Automatic Speech Recognition), speaker identification, SRT editing, and LLM-based summarization capabilities. It integrates **Gradio** as the user interface, providing an interactive and easy-to-use platform.
 
