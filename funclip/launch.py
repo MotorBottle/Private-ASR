@@ -258,7 +258,7 @@ if __name__ == "__main__":
             with gr.Column():
                 with gr.Row():
                     video_input = gr.Video(label="视频输入 | Video Input")
-                    audio_input = gr.Audio(label="音频输入 | Audio Input")
+                    audio_input = gr.Audio(label="音频输入 | Audio Input", type="filepath")
                 with gr.Column():
                     gr.Examples(['https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%A4%9A%E8%AF%BB%E4%B9%A6%EF%BC%9F%E8%BF%99%E6%98%AF%E6%88%91%E5%90%AC%E8%BF%87%E6%9C%80%E5%A5%BD%E7%9A%84%E7%AD%94%E6%A1%88-%E7%89%87%E6%AE%B5.mp4', 
                                  'https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ClipVideo/2022%E4%BA%91%E6%A0%96%E5%A4%A7%E4%BC%9A_%E7%89%87%E6%AE%B52.mp4', 

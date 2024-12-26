@@ -18,7 +18,7 @@ import torch
 from moviepy.editor import *
 import moviepy.editor as mpy
 from moviepy.video.tools.subtitles import SubtitlesClip, TextClip
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.editor import AudioFileClip, concatenate_videoclips
 from moviepy.video.compositing import CompositeVideoClip
 from utils.subtitle_utils import generate_srt, generate_srt_clip
 from utils.argparse_tools import ArgumentParser, get_commandline_args
@@ -34,44 +34,80 @@ class VideoClipper():
     def recog(self, audio_input, sd_switch='no', state=None, hotwords="", output_dir=None):
         if state is None:
             state = {}
-        sr, data = audio_input
+        
+        if not isinstance(audio_input, str):
+            logging.error("音频输入必须是文件路径。")
+            return "", "", state
 
-        # Convert to float64 consistently (includes data type checking)
-        data = convert_pcm_to_float(data)
+        audio_filepath = audio_input
+        logging.info(f"处理音频文件: {audio_filepath}")
 
-        # Update to use torchaudio
-        if sr != 16000:  # Resample using torchaudio
-            data = torch.tensor(data, dtype=torch.float32)  # Ensure data is float32
-            data = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(data).numpy()
-            sr = 16000
-        if len(data.shape) == 2:  # multi-channel wav input
-            logging.warning("Converting multi-channel audio to mono.")
+        try:
+            # 使用 librosa 加载音频
+            data, sr = librosa.load(audio_filepath, sr=None, mono=True)
+            logging.info(f"使用 librosa 加载音频成功: 采样率={sr}, 数据形状={data.shape}")
+        except Exception as e:
+            logging.error(f"使用 librosa 加载音频失败: {e}")
+            return "", "", state
+
+        try:
+            # 转换为 float64
+            data = convert_pcm_to_float(data)
+            logging.info(f"转换音频数据为 float64 成功: 数据形状={data.shape}")
+        except ValueError as e:
+            logging.error(f"音频数据转换错误: {e}")
+            return "", "", state
+
+        # 重采样到 16000 Hz
+        if sr != 16000:
+            try:
+                data = torch.tensor(data, dtype=torch.float32)
+                resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
+                data = resampler(data).numpy()
+                sr = 16000
+                logging.info(f"重采样音频到 16000 Hz 成功: 新数据形状={data.shape}")
+            except Exception as e:
+                logging.error(f"重采样时出错: {e}")
+                return "", "", state
+
+        # 确保音频是单通道
+        if len(data.shape) == 2:
+            logging.warning("将多通道音频转换为单通道。")
             data = np.mean(data, axis=1)
+            logging.info(f"转换为单通道后数据形状={data.shape}")
+
         state['audio_input'] = (sr, data)
-        if sd_switch == 'Yes':
-            rec_result = self.funasr_model.generate(data, 
-                                                    return_spk_res=True,
-                                                    return_raw_text=True, 
-                                                    is_final=True,
-                                                    output_dir=output_dir, 
-                                                    hotword=hotwords, 
-                                                    pred_timestamp=self.lang=='en',
-                                                    en_post_proc=self.lang=='en',
-                                                    cache={})
+
+        # ASR 识别
+        if sd_switch.lower() == 'yes':
+            rec_result = self.funasr_model.generate(
+                data, 
+                return_spk_res=True,
+                return_raw_text=True, 
+                is_final=True,
+                output_dir=output_dir, 
+                hotword=hotwords, 
+                pred_timestamp=self.lang == 'en',
+                en_post_proc=self.lang == 'en',
+                cache={}
+            )
             res_srt = generate_srt(rec_result[0]['sentence_info'])
             state['sd_sentences'] = rec_result[0]['sentence_info']
         else:
-            rec_result = self.funasr_model.generate(data, 
-                                                    return_spk_res=False, 
-                                                    sentence_timestamp=True, 
-                                                    return_raw_text=True, 
-                                                    is_final=True, 
-                                                    hotword=hotwords,
-                                                    output_dir=output_dir,
-                                                    pred_timestamp=self.lang=='en',
-                                                    en_post_proc=self.lang=='en',
-                                                    cache={})
+            rec_result = self.funasr_model.generate(
+                data, 
+                return_spk_res=False, 
+                sentence_timestamp=True, 
+                return_raw_text=True, 
+                is_final=True, 
+                hotword=hotwords,
+                output_dir=output_dir,
+                pred_timestamp=self.lang == 'en',
+                en_post_proc=self.lang == 'en',
+                cache={}
+            )
             res_srt = generate_srt(rec_result[0]['sentence_info'])
+
         state['recog_res_raw'] = rec_result[0]['raw_text']
         state['timestamp'] = rec_result[0]['timestamp']
         state['sentences'] = rec_result[0]['sentence_info']
