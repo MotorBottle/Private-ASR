@@ -114,6 +114,53 @@ class VideoClipper():
         res_text = rec_result[0]['text']
         return res_text, res_srt, state
 
+    def recog_from_video(self, audio_input, sd_switch='no', state=None, hotwords="", output_dir=None):
+        if state is None:
+            state = {}
+        sr, data = audio_input
+
+        # Convert to float64 consistently (includes data type checking)
+        data = convert_pcm_to_float(data)
+
+        # Update to use torchaudio
+        if sr != 16000:  # Resample using torchaudio
+            data = torch.tensor(data, dtype=torch.float32)  # Ensure data is float32
+            data = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)(data).numpy()
+            sr = 16000
+        if len(data.shape) == 2:  # multi-channel wav input
+            logging.warning("Converting multi-channel audio to mono.")
+            data = np.mean(data, axis=1)
+        state['audio_input'] = (sr, data)
+        if sd_switch == 'Yes':
+            rec_result = self.funasr_model.generate(data, 
+                                                    return_spk_res=True,
+                                                    return_raw_text=True, 
+                                                    is_final=True,
+                                                    output_dir=output_dir, 
+                                                    hotword=hotwords, 
+                                                    pred_timestamp=self.lang=='en',
+                                                    en_post_proc=self.lang=='en',
+                                                    cache={})
+            res_srt = generate_srt(rec_result[0]['sentence_info'])
+            state['sd_sentences'] = rec_result[0]['sentence_info']
+        else:
+            rec_result = self.funasr_model.generate(data, 
+                                                    return_spk_res=False, 
+                                                    sentence_timestamp=True, 
+                                                    return_raw_text=True, 
+                                                    is_final=True, 
+                                                    hotword=hotwords,
+                                                    output_dir=output_dir,
+                                                    pred_timestamp=self.lang=='en',
+                                                    en_post_proc=self.lang=='en',
+                                                    cache={})
+            res_srt = generate_srt(rec_result[0]['sentence_info'])
+        state['recog_res_raw'] = rec_result[0]['raw_text']
+        state['timestamp'] = rec_result[0]['timestamp']
+        state['sentences'] = rec_result[0]['sentence_info']
+        res_text = rec_result[0]['text']
+        return res_text, res_srt, state
+
     def clip(self, dest_text, start_ost, end_ost, state, dest_spk=None, output_dir=None, timestamp_list=None):
         # get from state
         audio_input = state['audio_input']
@@ -204,7 +251,7 @@ class VideoClipper():
             'video': video,
         }
         # res_text, res_srt = self.recog((16000, wav), state)
-        return self.recog((16000, wav), sd_switch, state, hotwords, output_dir)
+        return self.recog_from_video((16000, wav), sd_switch, state, hotwords, output_dir)
 
     def video_clip(self, 
                    dest_text, 
