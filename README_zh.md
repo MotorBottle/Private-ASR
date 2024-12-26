@@ -132,6 +132,8 @@ python funclip/launch.py --listen
 Gradio 用户界面将在以下地址访问：  
 `http://localhost:7860`
 
+默认用户名：motor，密码：admin
+
 ---
 
 ## ⚙️ **环境变量配置**

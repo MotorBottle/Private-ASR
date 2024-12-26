@@ -126,6 +126,10 @@ python funclip/launch.py --listen
 The Gradio interface will be available at:  
 `http://localhost:7860`
 
+Default user name: motor
+
+Default passwd: admin
+
 ---
 
 ## ⚙️ **Environment Configuration**
