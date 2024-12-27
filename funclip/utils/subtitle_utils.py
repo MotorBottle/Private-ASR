@@ -54,14 +54,62 @@ class Text2SRT():
         return (self.start_sec/1000+acc_ost, self.end_sec/1000+acc_ost)
 
 
-def generate_srt(sentence_list):
+def generate_srt(sentence_list, merge_threshold=4000):
+    """
+    生成 SRT 字幕，合并连续同一说话人的发言。
+    
+    :param sentence_list: 识别的句子列表，每个句子包含 'text', 'timestamp' 和可选的 'spk' 字段
+    :param merge_threshold: 同一说话人连续发言的时间间隔阈值（毫秒）
+    :return: 合并后的 SRT 字符串
+    """
     srt_total = ''
-    for i, sent in enumerate(sentence_list):
-        t2s = Text2SRT(sent['text'], sent['timestamp'])
-        if 'spk' in sent:
-            srt_total += "{}  spk{}\n{}".format(i, sent['spk'], t2s.srt())
+    index = 1
+
+    if not sentence_list:
+        return srt_total
+
+    # 初始化第一个条目的合并变量
+    current_spk = sentence_list[0].get('spk', None)
+    current_start = sentence_list[0]['timestamp'][0][0]
+    current_end = sentence_list[0]['timestamp'][0][1]
+    current_text = sentence_list[0]['text']
+
+    for sent in sentence_list[1:]:
+        sent_spk = sent.get('spk', None)
+        sent_start = sent['timestamp'][0][0]
+        sent_end = sent['timestamp'][0][1]
+        sent_text = sent['text']
+
+        # 判断是否与当前合并的条目满足合并条件
+        same_speaker = (sent_spk == current_spk)
+        time_gap = sent_start - current_end
+
+        if same_speaker and time_gap <= merge_threshold:
+            # 合并文本和时间
+            current_end = sent_end
+            current_text += ' ' + sent_text
         else:
-            srt_total += "{}\n{}".format(i, t2s.srt())
+            # 写入当前合并的条目
+            t2s = Text2SRT(current_text, [(current_start, current_end)])
+            if current_spk is not None:
+                srt_total += "{}  spk{}\n{}\n".format(index, current_spk, t2s.srt())
+            else:
+                srt_total += "{}\n{}\n".format(index, t2s.srt())
+            index += 1
+
+            # 重新初始化合并变量
+            current_spk = sent_spk
+            current_start = sent_start
+            current_end = sent_end
+            current_text = sent_text
+
+    # 写入最后一个合并的条目
+    t2s = Text2SRT(current_text, [(current_start, current_end)])
+    if current_spk is not None:
+        srt_total += "{}  spk{}\n{}\n".format(index, current_spk, t2s.srt())
+    else:
+        srt_total += "{}\n{}\n".format(index, t2s.srt())
+
     return srt_total
 
 def replace_speaker_in_subtitles(subtitles, speaker_map):
