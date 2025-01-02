@@ -58,24 +58,54 @@
 
 ## 🚀 **项目部署**
 
-### 1. **Docker 部署**
+### 1. **Docker 一键部署**
+
+#### **通过 Docker Compose 部署**
+创建一个文件夹用于部署项目，在文件夹创建`docker-compose.yml`文件和`.env`文件（可选，参考.env.example）
+
+ `docker-compose.yml` 内容：
+
+```yaml
+services:
+  audio-processor:
+    image: motorbottle/private-asr:latest  # 支持arm64和amd64
+    container_name: private-asr
+    ports:
+      - "7860:7860"  # 端口映射
+    volumes:
+      - ./.env:/app/.env  # 映射 .env 文件
+    working_dir: /app  # 设置工作目录
+    restart: unless-stopped  # 确保服务异常退出时重启
+```
+
+命令行cd到文件所在目录，用以下指令启动部署：
+```
+docker-compose up -d
+```
+
+Gradio 用户界面将在以下地址访问：  
+`http://localhost:7860`
+
+默认账户motor，密码admin
+
+---
+
+### 2. **Docker 手动创建部署**
 
 #### **构建 Docker 镜像**
 使用以下命令构建 Docker 镜像：
 ```bash
-docker build -t audio-processor:latest .
+docker build -t private-asr:latest .
 ```
 
 #### **通过 Docker Compose 部署**
 使用以下 `docker-compose.yml` 文件进行部署：
 
 ```yaml
-version: '3.8'
-
 services:
   audio-processor:
-    image: audio-processor:latest  # 使用已构建的镜像
-    container_name: audio-processor
+    image: private-asr:latest  # 使用已构建的镜像
+    container_name: private-asr
     ports:
       - "7860:7860"  # 端口映射
     volumes:
@@ -91,6 +121,8 @@ docker-compose up -d
 
 Gradio 用户界面将在以下地址访问：  
 `http://localhost:7860`
+
+默认账户motor，密码admin
 
 ---
 
