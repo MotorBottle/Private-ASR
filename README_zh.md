@@ -78,7 +78,7 @@ services:
     restart: unless-stopped  # 确保服务异常退出时重启
 ```
 
-命令行cd到文件所在目录，用以下指令启动部署：
+命令行cd到文件所在目录，用以下指令启动部署，首次运行会下载识别模型，等待log中出现 `WARNING:root:Initializing VideoClipper.` 即可访问：
 ```
 docker-compose up -d
 ```
